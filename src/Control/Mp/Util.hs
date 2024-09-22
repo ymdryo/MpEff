@@ -25,6 +25,9 @@ module Control.Mp.Util
     -- * Choice
   , Choose(Choose,none,choose)
   , chooseFirst, chooseAll
+  , Yield(yield)
+  , Status(Done,Continue)
+  , coroutine
 ) where
 
 import Control.Mp.Eff
@@ -166,3 +169,10 @@ instance (Choose :? e) => MonadPlus (Eff e) where
   mzero       = perform none ()
   mplus m1 m2 = do x <- perform choose 2
                    if (x==1) then m1 else m2
+
+newtype Yield a b e ans = Yield { yield :: Op a b e ans }
+
+data Status e a b r = Done r | Continue a (b -> Eff e (Status e a b r))
+
+coroutine :: Eff (Yield a b :* e) r -> Eff e (Status e a b r)
+coroutine = handler Yield {yield = operation $ \a k -> pure $ Continue a k } . fmap Done
